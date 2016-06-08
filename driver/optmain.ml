@@ -47,29 +47,22 @@ let process_implementation_file ppf name =
 
 let cmxa_present = ref false;;
 
-let process_file ppf name =
-  if Filename.check_suffix name ".ml"
-  || Filename.check_suffix name ".mlt" then
-    process_implementation_file ppf name
-  else if Filename.check_suffix name !Config.interface_suffix then
-    process_interface_file ppf name
-  else if Filename.check_suffix name ".cmx" then
-    objfiles := name :: !objfiles
-  else if Filename.check_suffix name ".cmxa" then begin
+let process_file ppf name = match Filename.extension name with
+  | ".ml" | ".mlt" -> process_implementation_file ppf name
+  | sufx when sufx = !interface_suffix -> process_interface_file ppf name
+  | ".cmx" -> objfiles := name :: !objfiles
+  | ".cmxa" ->
     cmxa_present := true;
     objfiles := name :: !objfiles
-  end else if Filename.check_suffix name ".cmi" && !make_package then
-    objfiles := name :: !objfiles
-  else if Filename.check_suffix name ext_obj
-       || Filename.check_suffix name ext_lib then
-    ccobjs := name :: !ccobjs
-  else if Filename.check_suffix name ".c" then begin
+  | ".cmi" when !make_package -> objfiles := name :: !objfiles
+  | exts when exts = ext_obj || exts = ext_lib -> ccobjs := name :: !ccobjs
+  | c_fam_lang
+    when c_fam_lang = ".c" || c_fam_lang = ".cpp" || c_fam_lang = ".cc" ||
+         c_fam_lang = ".m" || c_fam_lang = ".mm" || c_fam_lang = ".hpp" ->
     Optcompile.c_file name;
-    ccobjs := (Filename.chop_suffix (Filename.basename name) ".c" ^ ext_obj)
-              :: !ccobjs
-  end
-  else
-    raise(Arg.Bad("don't know what to do with " ^ name))
+    ccobjs :=
+      Filename.(chop_suffix (basename name) c_fam_lang ^ ext_obj) :: !ccobjs
+  | _ -> raise(Arg.Bad("don't know what to do with " ^ name))
 
 let usage = "Usage: ocamlopt <options> <files>\nOptions are:"
 
